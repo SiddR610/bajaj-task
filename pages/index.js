@@ -7,12 +7,17 @@ export default function Home() {
   const [error, setError] = useState('');
   const [selectedOptions, setSelectedOptions] = useState([]);
 
+  const filterOptions = [
+    { label: "Alphabets", value: "Alphabets" },
+    { label: "Numbers", value: "Numbers" },
+    { label: "Highest lowercase alphabet", value: "Highest lowercase alphabet" },
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setResponse(null);
 
-    // Validate JSON input
     let parsedData;
     try {
       parsedData = JSON.parse(jsonInput);
@@ -21,7 +26,6 @@ export default function Home() {
       return;
     }
 
-    // Prepare form data
     const formData = new FormData();
     parsedData.data.forEach(item => {
       formData.append('data[]', item);
@@ -31,7 +35,6 @@ export default function Home() {
       formData.append('file', fileInput);
     }
 
-    // Call the backend API
     const res = await fetch('/api/bfhl', {
       method: 'POST',
       body: formData,
@@ -42,12 +45,15 @@ export default function Home() {
     console.log(data);
   };
 
-  const handleSelectChange = (e) => {
-    const options = Array.from(e.target.selectedOptions).map(option => option.value);
-    setSelectedOptions(options);
+  const handleCheckboxChange = (e) => {
+    const { value, checked } = e.target;
+    if (checked) {
+      setSelectedOptions((prev) => [...prev, value]);
+    } else {
+      setSelectedOptions((prev) => prev.filter((option) => option !== value));
+    }
   };
 
-  // Normalize the key (e.g., "Highest lowercase alphabet" => "highest_lowercase_alphabet")
   const normalizeOptionKey = (option) => {
     return option.toLowerCase().replace(/ /g, '_');
   };
@@ -57,13 +63,38 @@ export default function Home() {
 
     return selectedOptions.map(option => {
       const normalizedKey = normalizeOptionKey(option);
+      const dataArray = response[normalizedKey];
+
       return (
         <div key={normalizedKey} className="mb-2">
           <strong>{option}:</strong>
-          <pre className="text-black">{JSON.stringify(response[normalizedKey], null, 2)}</pre>
+          <ul className="list-disc list-inside">
+            {Array.isArray(dataArray) && dataArray.length > 0 ? (
+              dataArray.map((item, index) => (
+                <li key={index} className="text-black">{item}</li>
+              ))
+            ) : (
+              <li className="text-black">No data available</li>
+            )}
+          </ul>
         </div>
       );
     });
+  };
+
+  const renderFileInfo = () => {
+    if (!response || !fileInput) return null;
+
+    return (
+      <div className="mt-4 p-4 border border-gray-300 rounded">
+        <h2 className="text-lg font-bold mb-2">File Information:</h2>
+        <ul className="list-disc list-inside">
+          <li><strong>File Valid:</strong> {response.file_valid ? 'Yes' : 'No'}</li>
+          <li><strong>MIME Type:</strong> {response.file_mime_type || 'N/A'}</li>
+          <li><strong>File Size (KB):</strong> {response.file_size_kb ? response.file_size_kb.toFixed(2) : 'N/A'}</li>
+        </ul>
+      </div>
+    );
   };
 
   return (
@@ -86,15 +117,29 @@ export default function Home() {
       {error && <p className="text-red-500">{error}</p>}
       {response && (
         <>
-          <select multiple onChange={handleSelectChange} className="border p-2 my-4">
-            <option value="Alphabets">Alphabets</option>
-            <option value="Numbers">Numbers</option>
-            <option value="Highest lowercase alphabet">Highest lowercase alphabet</option>
-          </select>
+          <div className="my-4">
+            <h2 className="text-lg font-bold">Select Filters:</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {filterOptions.map((option) => (
+                <label key={option.value} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    value={option.value}
+                    onChange={handleCheckboxChange}
+                    className="mr-2"
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div>
             <h2 className="text-lg font-bold">Filtered Response:</h2>
             {renderFilteredResponse()}
           </div>
+
+          {renderFileInfo()}
         </>
       )}
     </div>
